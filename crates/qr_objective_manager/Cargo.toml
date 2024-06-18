@@ -1,0 +1,12 @@
+[package]
+name = "qr_objective_manager"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# internal
+qr_explore.workspace = true
+
+# external
+tracing.workspace = true
+tracing-subscriber.workspace = true

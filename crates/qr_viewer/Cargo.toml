@@ -1,0 +1,22 @@
+[package]
+name = "qr_viewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# internal
+qr_explore.workspace = true
+qr_specification_manager.workspace = true
+qr_http_resource.workspace = true
+qr_open_api.workspace = true
+
+# external
+eframe.workspace = true
+egui_extras.workspace = true
+rfd.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true

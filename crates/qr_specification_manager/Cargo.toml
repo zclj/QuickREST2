@@ -1,0 +1,16 @@
+[package]
+name = "qr_specification_manager"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# internal
+qr_explore.workspace = true
+qr_open_api.workspace = true
+qr_specification_resource_access.workspace = true
+
+# external
+reqwest.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true

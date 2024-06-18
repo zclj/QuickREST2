@@ -1,0 +1,5 @@
+/target
+*~undo-tree~
+/data
+/local-dev
+.DS_Store

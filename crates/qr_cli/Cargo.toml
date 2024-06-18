@@ -1,0 +1,21 @@
+[package]
+name = "qr_cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# internal
+qr_explore.workspace = true
+qr_specification_manager.workspace = true
+qr_objective_manager.workspace = true
+qr_open_api.workspace = true
+qr_http_resource.workspace = true
+qr_report.workspace = true
+
+# external
+clap.workspace = true
+colored.workspace = true
+reqwest.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true

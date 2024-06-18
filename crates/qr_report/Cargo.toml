@@ -1,0 +1,16 @@
+[package]
+name = "qr_report"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# internal
+qr_explore.workspace = true
+qr_http_resource.workspace = true
+
+# external
+serde.workspace = true
+serde_json.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true

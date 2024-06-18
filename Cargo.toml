@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/*"
+]
+
+[workspace.package]
+authors = ["zclj"]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+qr_explore = { path = "crates/qr_explore" }
+qr_specification_manager = { path = "crates/qr_specification_manager"}
+qr_objective_manager = { path = "crates/qr_objective_manager"}
+qr_http_resource = { path = "crates/qr_http_resource" }
+qr_open_api = { path = "crates/qr_open_api" }
+qr_report = { path = "crates/qr_report" }
+qr_specification_resource_access = { path = "crates/qr_specification_resource_access" }
+
+proptest = "1.2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+lazy_static = "1.4.0"
+reqwest = { version = "0.11", features = ["rustls", "json", "blocking"], default-features = false }
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+eframe = "0.23.0"
+egui_extras = "0.23.0"
+
+# Relations
+petgraph = "0.6.4"
+regex = "1.10.2"
+
+# Rusty File Dialogs
+rfd = "0.11.4"
+
+# CLI
+clap = { version = "4.5", features = ["derive"]}
+colored = "2.1.0"
+
+[profile.dev]
+opt-level = 1   # Make debug builds run faster
+panic = "abort" # This leads to better optimizations and smaller binaries
+
+[profile.release]
+#debug = true # good for profilers
+panic = "abort" # This leads to better optimizations and smaller binaries
+
+[profile.bench]
+debug = true
