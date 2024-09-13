@@ -648,7 +648,6 @@ impl App {
         } else {
             ui.label("No examples to show");
         }
-        
     }
 
     fn exploration_progress_ui(&mut self, ui: &mut egui::Ui) {
@@ -1129,11 +1128,15 @@ impl App {
                                 for (id, query_op) in
                                     parameters.query_operation_ids.iter().enumerate()
                                 {
-                                    ui.selectable_value(
-                                        &mut parameters.selected_query_operation,
-                                        Some(id),
-                                        self.amos.operations[*query_op].info.name.clone(),
-                                    );
+                                    let op_res = self.amos.operations.get(*query_op);
+
+                                    if let Some(op) = op_res {
+                                        ui.selectable_value(
+                                            &mut parameters.selected_query_operation,
+                                            Some(id),
+                                            op.info.name.clone(),
+                                        );
+                                    }
                                 }
                             }
                         }

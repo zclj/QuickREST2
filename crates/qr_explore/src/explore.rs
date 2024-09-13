@@ -695,7 +695,7 @@ pub fn explore_state_identity(
                     query_op.info.name
                 ),
             ));
-   
+
             context.query_operation = Some(query_op.clone());
 
             // what precedence do the query op have?
@@ -1138,7 +1138,6 @@ pub fn invoke(
                 let success = &r.status().is_success();
 
                 if let Ok(t) = &r.text() {
- 
                     let result = InvokeResult::new(
                         gen_op.clone(),
                         t.clone(),
