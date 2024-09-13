@@ -64,9 +64,12 @@ impl Sequence {
     }
 
     pub fn remove_selected(&mut self) {
-        self.items.remove(self.selected);
-        if self.selected > 0 {
-            self.selected -= 1;
+        if self.selected < self.items.len() {
+            self.items.remove(self.selected);
+
+            if self.selected > 0 {
+                self.selected -= 1;
+            }
         }
     }
 }
