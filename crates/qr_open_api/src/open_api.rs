@@ -1,6 +1,6 @@
 use crate::error::Result;
 use qr_http_resource::http::{
-    CharacterSet, HTTPMethod, HTTPStatus, MimeData, MimeSubType, MimeType,
+    CharacterSet, HTTPMethod, HTTPStatus, MimeData, MimeSubType, MimeType, MultipartSubType,
 };
 use serde_json::{Map, Value};
 
@@ -88,6 +88,7 @@ pub struct Operation {
     pub method: HTTPMethod,
     pub id: String,
     pub produces: Vec<MimeData>,
+    pub consumes: Vec<MimeData>,
     pub parameters: Vec<OperationParameter>,
     pub responses: Vec<OperationResponse>,
 }
@@ -413,7 +414,7 @@ fn parse_method_str(context: &mut ParseContext, method: &str) -> HTTPMethod {
     }
 }
 
-fn parse_produces(context: &mut ParseContext, produces: &str) -> MimeData {
+fn parse_mime_types_string(context: &mut ParseContext, produces: &str) -> MimeData {
     let parts: Vec<&str> = produces.split(';').collect();
 
     let kind = match parts[0] {
@@ -426,6 +427,7 @@ fn parse_produces(context: &mut ParseContext, produces: &str) -> MimeData {
         }
         "application/json" => MimeType::Application(MimeSubType::Json),
         "application/xml" => MimeType::Application(MimeSubType::XML),
+        "multipart/form-data" => MimeType::Multipart(MultipartSubType::FormData),
         _ => {
             // vendor is not the common case
             let kind_parts: Vec<&str> = parts[0].split('/').collect();
@@ -495,17 +497,35 @@ fn parse_operation_method(
 
     let parameters = parse_method_parameters(context, method_info);
 
+    let consumes = match method_info.get("consumes") {
+        Some(consumes_entry) => {
+            if let Some(consumes) = consumes_entry.as_array() {
+                consumes
+                    .iter()
+                    .map(|x| parse_mime_types_string(context, x.as_str().unwrap()))
+                    .collect()
+            } else {
+                context.push_warning(ParseMessage::new(format!(
+                    "Unsupported format for 'consumes' entry : {}/{}",
+                    path, method
+                )));
+                vec![]
+            }
+        }
+        None => vec![],
+    };
+
     Operation {
         url: path.to_string(),
         method: parse_method_str(context, method),
         id: operation_id,
-        // TODO - make this an enum
         produces: method_info["produces"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|x| parse_produces(context, x.as_str().unwrap()))
+            .map(|x| parse_mime_types_string(context, x.as_str().unwrap()))
             .collect(),
+        consumes,
         parameters,
         responses: parse_method_responses(
             context,
@@ -713,17 +733,79 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_produces_mime_types() {
+    fn parse_operation_with_consume_produces_mime_types() {
+        let data = r##"
+        {"get": {
+           "summary": "Foo",
+           "operationId": "OpId",
+           "produces": [
+               "application/json"
+           ],
+           "consumes": [
+               "multipart/form-data"
+           ],
+           "responses": {
+               "200": {
+                   "description": "OK",
+                   "schema": {
+                       "type": "array",
+                       "items": {
+                           "type": "string"
+                       }
+                   }
+               }
+           }
+        }
+       }
+        "##;
+
+        let json_value = serde_json::from_str::<Value>(data).unwrap();
+        let json_object = &json_value["get"];
+
+        let mut ctx = ParseContext::new();
+        let parsed = parse_operation_method(
+            &mut ctx,
+            &"foo-path".to_string(),
+            (&"get".to_string(), &json_object),
+        );
+
+        assert_eq!(
+            parsed,
+            Operation {
+                url: "foo-path".to_string(),
+                method: HTTPMethod::GET,
+                id: "OpId".to_string(),
+                produces: vec![MimeData {
+                    kind: MimeType::Application(MimeSubType::Json),
+                    char_set: None
+                }],
+                consumes: vec![MimeData {
+                    kind: MimeType::Multipart(MultipartSubType::FormData),
+                    char_set: None
+                }],
+                parameters: vec![],
+                responses: vec![OperationResponse {
+                    status: HTTPStatus::OK,
+                    description: "OK".to_string(),
+                    schema: Some(DataType::ArrayOfStrings),
+                },],
+            }
+        )
+    }
+
+    #[test]
+    fn parse_mime_types() {
         let mut ctx = ParseContext::new();
 
-        let unsupported = parse_produces(&mut ctx, "foo");
-        let json = parse_produces(&mut ctx, "application/json");
-        let xml = parse_produces(&mut ctx, "application/xml");
-        let vendor = parse_produces(
+        let unsupported = parse_mime_types_string(&mut ctx, "foo");
+        let json = parse_mime_types_string(&mut ctx, "application/json");
+        let xml = parse_mime_types_string(&mut ctx, "application/xml");
+        let multipart_form_data = parse_mime_types_string(&mut ctx, "multipart/form-data");
+        let vendor = parse_mime_types_string(
             &mut ctx,
             "application/vnd.tsdes.news+json;charset=UTF-8;version=2",
         );
-        let json_utf_8 = parse_produces(&mut ctx, "application/json;charset=UTF-8");
+        let json_utf_8 = parse_mime_types_string(&mut ctx, "application/json;charset=UTF-8");
 
         assert_eq!(unsupported, MimeData::new(MimeType::Unsupported, None));
         assert_eq!(
@@ -747,6 +829,10 @@ mod tests {
                 MimeType::Application(MimeSubType::Vendor),
                 Some(CharacterSet::UTF_8)
             )
+        );
+        assert_eq!(
+            multipart_form_data,
+            MimeData::new(MimeType::Multipart(MultipartSubType::FormData), None)
         );
     }
 
@@ -793,6 +879,7 @@ mod tests {
                     kind: MimeType::Application(MimeSubType::Json),
                     char_set: None
                 }],
+                consumes: vec![],
                 parameters: vec![],
                 responses: vec![OperationResponse {
                     status: HTTPStatus::OK,
@@ -860,6 +947,7 @@ mod tests {
                     kind: MimeType::Application(MimeSubType::Json),
                     char_set: None
                 }],
+                consumes: vec![],
                 parameters: vec![],
                 responses: vec![
                     OperationResponse {
