@@ -120,6 +120,7 @@ pub fn synthesize_operation(
             | v @ ParameterValue::DoubleValue { .. }
             | v @ ParameterValue::ArrayOfString { .. }
             | v @ ParameterValue::IntValue { .. }
+            | v @ ParameterValue::File { .. }
             | v @ ParameterValue::IPV4Value { .. } => {
                 // There is a chance that non-required parameters are dropped
                 if !generated_op.0.parameters[i].required {
@@ -1066,7 +1067,7 @@ pub fn invoke(
         let amos_op = matching_op.unwrap();
         let op_meta = amos_op.meta_data.clone();
 
-        let (url, form_data, body, method) = match op_meta.clone().unwrap() {
+        let (url, form_data, body, file_data, method) = match op_meta.clone().unwrap() {
             OperationMetaData::HTTP { url, method } => {
                 if let Some(call) =
                     translate_parameters(&gen_op.parameters, &amos_op.parameters, &results, &url)
@@ -1082,6 +1083,7 @@ pub fn invoke(
                             ),
                             call.form_data,
                             call.body,
+                            call.file_data,
                             method,
                         ),
                     }
@@ -1108,18 +1110,43 @@ pub fn invoke(
         let init_request = ctx.http_client.request(con_method, url.clone());
 
         let request_with_form_data = if let Some(payload) = form_data {
-            //init_request.body(payload)
             init_request.form(&payload)
         } else {
             init_request
         };
 
-        let final_request = if let Some(body) = body {
-            // TODO: respect the operations "consumes" mime type
-            request_with_form_data.json(&body)
+        // With form-data present and no other evidence, we default to
+        // 'application/x-www-form-urlencoded'. 'multipart/form-data' should
+        // be used for binary data or data of 'significant' size. Thus, currently,
+        // the operation need to state that specific mime-type in 'consumes', or
+        // the type of the parameter is 'file'.
+        let request_with_form_and_file = if let Some(file) = file_data {
+            let file_form = reqwest::blocking::multipart::Form::new();
+            let mut payload = reqwest::blocking::multipart::Part::bytes("Uninitialized".as_bytes());
+            let mut param_name = "Uninitialized".to_string();
+            // Currently, only support one file parameter
+            for (k, v) in file {
+                payload = reqwest::blocking::multipart::Part::bytes(v.as_bytes().to_owned())
+                    .file_name("foo.bar")
+                    .mime_str("application/octet-stream")
+                    .unwrap();
+                param_name = k.to_string();
+            }
+
+            let final_form = file_form.part(param_name, payload);
+            request_with_form_data.multipart(final_form)
         } else {
             request_with_form_data
         };
+
+        let final_request = if let Some(body) = body {
+            // TODO: respect the operations "consumes" mime type
+            request_with_form_and_file.json(&body)
+        } else {
+            request_with_form_and_file
+        };
+
+        //println!("final: {:#?} ", final_request);
 
         trace!("{final_request:#?}");
 

@@ -77,6 +77,7 @@ pub enum Schema {
     Int8,
     Int32,
     Bool,
+    File,
     Unsupported,
 }
 
@@ -569,13 +570,7 @@ fn open_api_parameter_to_amos(
         DataType::Integer32 => Schema::Int32,
         DataType::Boolean => Schema::Bool,
         DataType::IPV4 => Schema::IPV4,
-        DataType::File => {
-            ctx.push_warning(TranslationMessage::new(format!(
-                "Unsupported parameter kind: {:?}",
-                parameter.kind,
-            )));
-            Schema::Unsupported
-        }
+        DataType::File => Schema::File,
 
         DataType::Schema(schema) => match schema {
             OpenAPISchema::ArrayOfString => Schema::ArrayOfString,

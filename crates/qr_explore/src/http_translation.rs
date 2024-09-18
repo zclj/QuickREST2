@@ -17,6 +17,7 @@ use qr_http_resource::http::HTTPParameterTarget;
 pub struct HTTPCall {
     pub url: String,
     pub form_data: Option<HashMap<String, String>>,
+    pub file_data: Option<HashMap<String, String>>,
     pub body: Option<HashMap<String, String>>,
 }
 
@@ -31,7 +32,10 @@ pub fn parameters_to_form_data(params: &[GeneratedParameter]) -> HashMap<String,
             ParameterValue::IntValue { value, .. } => {
                 form_data.insert(p.name.clone(), value.to_string());
             }
-            _ => panic!("Unsupported parameter to json conversion: {p:#?}"),
+            ParameterValue::File { value, .. } => {
+                form_data.insert(p.name.clone(), value.to_string());
+            }
+            _ => panic!("Unsupported parameter to form data conversion: {p:#?}"),
         }
     }
 
@@ -123,6 +127,7 @@ pub fn translate_parameters(
     let mut form_params = vec![];
     let mut query_params = vec![];
     let mut body_params = vec![];
+    let mut file_params = vec![];
 
     // TODO: make this nicer..
     for p in params {
@@ -223,7 +228,8 @@ pub fn translate_parameters(
                                 },
                                 Relation::Parameter(info) => panic!("Parameter relations should be resolved before runtime translation. Offending reference: {info:#?}")
                             }
-                        } //_ => panic!("Unsupported parameter value: {:#?}", p),
+                        }
+                        _ => panic!("Unsupported parameter value: {:#?}", p),
                     }
                 }
                 HTTPParameterTarget::FormData => {
@@ -244,6 +250,9 @@ pub fn translate_parameters(
                                 }
                                 Relation::Parameter(info) => panic!("Parameter relations should be resolved before runtime translation. Offending reference: {info:#?}")
                             }
+                        }
+                        ParameterValue::File {..} => {
+                            file_params.push(p.clone())
                         }
                         _ => form_params.push(p.clone())
                     }
@@ -314,6 +323,13 @@ pub fn translate_parameters(
         Some(parameters_to_form_data(&body_params))
     };
 
+    let file_data = if file_params.is_empty() {
+        None
+    } else {
+        // TODO: this could be specialized and warn on non-file type
+        Some(parameters_to_form_data(&file_params))
+    };
+
     let translated_url = if query_params.is_empty() {
         translated_url
     } else {
@@ -327,6 +343,7 @@ pub fn translate_parameters(
         url: translated_url,
         form_data,
         body: body_data,
+        file_data,
     })
 }
 

@@ -43,6 +43,11 @@ pub enum ParameterValue {
         seed: i32,
         active: bool,
     },
+    File {
+        value: u8,
+        seed: i32,
+        active: bool,
+    },
 
     Empty,
 }
@@ -66,6 +71,7 @@ impl ParameterValue {
         match self {
             ParameterValue::StringValue { seed, .. } => *seed,
             ParameterValue::IntValue { seed, .. } => *seed,
+            ParameterValue::File { seed, .. } => *seed,
             _ => panic!("seed() called on unsupported enum"),
         }
     }
@@ -79,6 +85,7 @@ impl ParameterValue {
             ParameterValue::Reference { active, .. } => *active,
             ParameterValue::ArrayOfString { active, .. } => *active,
             ParameterValue::IPV4Value { active, .. } => *active,
+            ParameterValue::File { active, .. } => *active,
             ParameterValue::Empty => false,
             //_ => panic!("active() called on unsupported enum"),
         }
@@ -250,6 +257,18 @@ fn gen_parameter_value(t: Option<&Parameter>) -> BoxedStrategy<ParameterValue> {
                     proptest::bool::weighted(ref_weight),
                 )
                     .prop_map(|(i, seed, active)| ParameterValue::IPV4Value {
+                        value: i,
+                        seed,
+                        active,
+                    })
+                    .boxed(),
+
+                Schema::File => (
+                    proptest::num::u8::ANY,
+                    (1..10i32),
+                    proptest::bool::weighted(ref_weight),
+                )
+                    .prop_map(|(i, seed, active)| ParameterValue::File {
                         value: i,
                         seed,
                         active,

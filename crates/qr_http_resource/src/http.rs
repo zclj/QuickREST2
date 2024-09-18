@@ -50,9 +50,15 @@ pub enum MimeSubType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum MultipartSubType {
+    FormData,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 /// See [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#structure_of_a_mime_type) for reference
 pub enum MimeType {
     Application(MimeSubType),
+    Multipart(MultipartSubType),
     Unspecified,
     Unsupported,
 }
