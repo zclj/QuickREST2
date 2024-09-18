@@ -1042,6 +1042,156 @@ pub fn explore(
     None
 }
 
+fn build_request(
+    ctx: &ExplorationContext,
+    ops: &[Operation],
+    gen_op: &GeneratedOperation,
+    results: &[InvokeResult],
+) -> Option<(reqwest::blocking::RequestBuilder, String)> {
+    // TODO: Fix this meta crap
+    let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
+
+    let amos_op = matching_op.unwrap();
+    let op_meta = amos_op.meta_data.clone();
+
+    let (url, form_data, body, file_data, method) = match op_meta.clone().unwrap() {
+        OperationMetaData::HTTP { url, method } => {
+            if let Some(call) =
+                translate_parameters(&gen_op.parameters, &amos_op.parameters, results, &url)
+            {
+                match &ctx.target {
+                    Target::HTTP { config } => (
+                        format!(
+                            "{}{}:{}{}",
+                            config.protocol.to_string(),
+                            config.base_url,
+                            config.port,
+                            call.url
+                        ),
+                        call.form_data,
+                        call.body,
+                        call.file_data,
+                        method,
+                    ),
+                }
+            } else {
+                // Could not create a valid URL, consider the SEQ as broken
+                warn!(gen_op.name, "Disscarded operation");
+                return None;
+            }
+        }
+    };
+
+    debug!(url,);
+    debug!(?body);
+    debug!(?method);
+    debug!(?form_data);
+
+    let con_method = match method {
+        HTTPMethod::GET => reqwest::Method::GET,
+        HTTPMethod::POST => reqwest::Method::POST,
+        HTTPMethod::DELETE => reqwest::Method::DELETE,
+        HTTPMethod::PUT => reqwest::Method::PUT,
+        _ => todo!(),
+    };
+    let init_request = ctx.http_client.request(con_method, url.clone());
+
+    let request_with_form_data = if let Some(payload) = form_data {
+        init_request.form(&payload)
+    } else {
+        init_request
+    };
+
+    // With form-data present and no other evidence, we default to
+    // 'application/x-www-form-urlencoded'. 'multipart/form-data' should
+    // be used for binary data or data of 'significant' size. Thus, currently,
+    // the operation need to state that specific mime-type in 'consumes', or
+    // the type of the parameter is 'file'.
+    let request_with_form_and_file = if let Some(file) = file_data {
+        let file_form = reqwest::blocking::multipart::Form::new();
+        let mut payload = reqwest::blocking::multipart::Part::bytes("Uninitialized".as_bytes());
+        let mut param_name = "Uninitialized".to_string();
+        // Currently, only support one file parameter
+        for (k, v) in file {
+            payload = reqwest::blocking::multipart::Part::bytes(v.as_bytes().to_owned())
+                .file_name("foo.bar")
+                .mime_str("application/octet-stream")
+                .unwrap();
+            param_name = k.to_string();
+        }
+
+        let final_form = file_form.part(param_name, payload);
+        request_with_form_data.multipart(final_form)
+    } else {
+        request_with_form_data
+    };
+
+    let final_request = if let Some(body) = body {
+        // TODO: respect the operations "consumes" mime type
+        request_with_form_and_file.json(&body)
+    } else {
+        request_with_form_and_file
+    };
+
+    Some((final_request, url))
+}
+
+fn process_response(
+    ctx: &ExplorationContext,
+    response: Result<reqwest::blocking::Response, reqwest::Error>,
+    gen_op: &GeneratedOperation,
+    url: String,
+    request_duration: std::time::Duration,
+) -> Option<InvokeResult> {
+    match response {
+        Err(e) => {
+            error!("HTTP Invoke error: {}", e);
+            None
+        }
+        Ok(r) => {
+            debug!("Response: {:#?}", r);
+            let status = r.status();
+            let _server_error = &r.status().is_server_error();
+            let success = &r.status().is_success();
+
+            if let Ok(t) = &r.text() {
+                let result = InvokeResult::new(
+                    gen_op.clone(),
+                    t.clone(),
+                    //content,
+                    *success,
+                    Some(amos::ResultMetaData::HTTP {
+                        url,
+                        status: match status.as_u16() {
+                            200 => http::HTTPStatus::OK,
+                            201 => http::HTTPStatus::Created,
+                            204 => http::HTTPStatus::NoContent,
+                            400 => http::HTTPStatus::BadRequest,
+                            401 => http::HTTPStatus::Unauthorized,
+                            403 => http::HTTPStatus::Forbidden,
+                            404 => http::HTTPStatus::NotFound,
+                            405 => http::HTTPStatus::MethodNotAllowed,
+                            415 => http::HTTPStatus::UnsupportedMediaType,
+                            500 => http::HTTPStatus::InternalServerError,
+                            _ => {
+                                warn!("Unsupported status code: {}", status.as_u16());
+                                http::HTTPStatus::Unsupported
+                            }
+                        },
+                    }),
+                );
+                ctx.publish_event(Event::Invocation {
+                    result: result.clone(),
+                    sut_invocation_duration: request_duration,
+                });
+                return Some(result);
+            };
+
+            None
+        }
+    }
+}
+
 pub fn invoke(
     ctx: &ExplorationContext,
     ops: &[Operation],
@@ -1061,90 +1211,8 @@ pub fn invoke(
     for gen_op in gen_ops {
         debug!(operation_name = gen_op.name,);
         debug!("Invoke: {gen_op:#?}");
-        // TODO: Fix this meta crap
-        let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
 
-        let amos_op = matching_op.unwrap();
-        let op_meta = amos_op.meta_data.clone();
-
-        let (url, form_data, body, file_data, method) = match op_meta.clone().unwrap() {
-            OperationMetaData::HTTP { url, method } => {
-                if let Some(call) =
-                    translate_parameters(&gen_op.parameters, &amos_op.parameters, &results, &url)
-                {
-                    match &ctx.target {
-                        Target::HTTP { config } => (
-                            format!(
-                                "{}{}:{}{}",
-                                config.protocol.to_string(),
-                                config.base_url,
-                                config.port,
-                                call.url
-                            ),
-                            call.form_data,
-                            call.body,
-                            call.file_data,
-                            method,
-                        ),
-                    }
-                } else {
-                    // Could not create a valid URL, consider the SEQ as broken
-                    warn!(gen_op.name, "Disscarded operation");
-                    return None;
-                }
-            }
-        };
-
-        debug!(url,);
-        debug!(?body);
-        debug!(?method);
-        debug!(?form_data);
-
-        let con_method = match method {
-            HTTPMethod::GET => reqwest::Method::GET,
-            HTTPMethod::POST => reqwest::Method::POST,
-            HTTPMethod::DELETE => reqwest::Method::DELETE,
-            HTTPMethod::PUT => reqwest::Method::PUT,
-            _ => todo!(),
-        };
-        let init_request = ctx.http_client.request(con_method, url.clone());
-
-        let request_with_form_data = if let Some(payload) = form_data {
-            init_request.form(&payload)
-        } else {
-            init_request
-        };
-
-        // With form-data present and no other evidence, we default to
-        // 'application/x-www-form-urlencoded'. 'multipart/form-data' should
-        // be used for binary data or data of 'significant' size. Thus, currently,
-        // the operation need to state that specific mime-type in 'consumes', or
-        // the type of the parameter is 'file'.
-        let request_with_form_and_file = if let Some(file) = file_data {
-            let file_form = reqwest::blocking::multipart::Form::new();
-            let mut payload = reqwest::blocking::multipart::Part::bytes("Uninitialized".as_bytes());
-            let mut param_name = "Uninitialized".to_string();
-            // Currently, only support one file parameter
-            for (k, v) in file {
-                payload = reqwest::blocking::multipart::Part::bytes(v.as_bytes().to_owned())
-                    .file_name("foo.bar")
-                    .mime_str("application/octet-stream")
-                    .unwrap();
-                param_name = k.to_string();
-            }
-
-            let final_form = file_form.part(param_name, payload);
-            request_with_form_data.multipart(final_form)
-        } else {
-            request_with_form_data
-        };
-
-        let final_request = if let Some(body) = body {
-            // TODO: respect the operations "consumes" mime type
-            request_with_form_and_file.json(&body)
-        } else {
-            request_with_form_and_file
-        };
+        let (final_request, url) = build_request(ctx, ops, gen_op, &results)?;
 
         //println!("final: {:#?} ", final_request);
 
@@ -1154,49 +1222,8 @@ pub fn invoke(
         let resp = final_request.send();
         let request_duration = request_start_time.elapsed();
 
-        match resp {
-            Err(e) => {
-                error!("HTTP Invoke error: {}", e);
-            }
-            Ok(r) => {
-                debug!("Response: {:#?}", r);
-                let status = r.status();
-                let _server_error = &r.status().is_server_error();
-                let success = &r.status().is_success();
-
-                if let Ok(t) = &r.text() {
-                    let result = InvokeResult::new(
-                        gen_op.clone(),
-                        t.clone(),
-                        //content,
-                        *success,
-                        Some(amos::ResultMetaData::HTTP {
-                            url,
-                            status: match status.as_u16() {
-                                200 => http::HTTPStatus::OK,
-                                201 => http::HTTPStatus::Created,
-                                204 => http::HTTPStatus::NoContent,
-                                400 => http::HTTPStatus::BadRequest,
-                                401 => http::HTTPStatus::Unauthorized,
-                                403 => http::HTTPStatus::Forbidden,
-                                404 => http::HTTPStatus::NotFound,
-                                405 => http::HTTPStatus::MethodNotAllowed,
-                                415 => http::HTTPStatus::UnsupportedMediaType,
-                                500 => http::HTTPStatus::InternalServerError,
-                                _ => {
-                                    warn!("Unsupported status code: {}", status.as_u16());
-                                    http::HTTPStatus::Unsupported
-                                }
-                            },
-                        }),
-                    );
-                    ctx.publish_event(Event::Invocation {
-                        result: result.clone(),
-                        sut_invocation_duration: request_duration,
-                    });
-                    results.push(result)
-                };
-            }
+        if let Some(invoke_result) = process_response(ctx, resp, gen_op, url, request_duration) {
+            results.push(invoke_result)
         }
     }
 
