@@ -3,18 +3,23 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tracing::debug;
 use tracing::error;
+use tracing::warn;
 
 use crate::amos::InvokeResult;
+use crate::amos::Operation;
+use crate::amos::OperationMetaData;
 use crate::amos::Parameter;
 use crate::amos::ParameterMetaData;
 use crate::amos::Schema;
+use crate::amos_generation::GeneratedOperation;
 use crate::amos_generation::{GeneratedParameter, ParameterValue};
 use crate::amos_relations::Relation;
 use crate::amos_relations::RelationInfo;
-use qr_http_resource::http::HTTPParameterTarget;
+use crate::explore::HTTPConfiguration;
+use qr_http_resource::http::{HTTPMethod, HTTPParameterTarget};
 
 #[derive(Debug, PartialEq)]
-pub struct HTTPCall {
+pub struct HTTPParameters {
     pub url: String,
     pub form_data: Option<HashMap<String, String>>,
     pub file_data: Option<HashMap<String, String>>,
@@ -115,12 +120,52 @@ fn parse_response(
     fallback.clone()
 }
 
+#[derive(Debug)]
+pub struct HTTPCall {
+    pub url: String,
+    pub method: HTTPMethod,
+    pub parameters: HTTPParameters,
+}
+
+pub fn translate_operation(
+    config: &HTTPConfiguration,
+    gen_op: &GeneratedOperation,
+    op_meta: &Option<OperationMetaData>,
+    amos_op: &Operation,
+    results: &[InvokeResult],
+) -> Option<HTTPCall> {
+    match op_meta.clone().unwrap() {
+        OperationMetaData::HTTP { url, method } => {
+            if let Some(call) =
+                translate_parameters(&gen_op.parameters, &amos_op.parameters, results, &url)
+            {
+                let url = format!(
+                    "{}{}:{}{}",
+                    config.protocol.to_string(),
+                    config.base_url,
+                    config.port,
+                    call.url
+                );
+                Some(HTTPCall {
+                    url,
+                    method,
+                    parameters: call,
+                })
+            } else {
+                // Could not create a valid URL, consider the SEQ as broken
+                warn!(gen_op.name, "Disscarded operation");
+                None
+            }
+        }
+    }
+}
+
 pub fn translate_parameters(
     params: &[GeneratedParameter],
     amos_params: &[Parameter],
     results: &[InvokeResult],
     url: &str,
-) -> Option<HTTPCall> {
+) -> Option<HTTPParameters> {
     let mut translated_url = url.to_owned();
 
     // sort up the params that will go into the path and into the body
@@ -339,7 +384,7 @@ pub fn translate_parameters(
         translated_url
     };
 
-    Some(HTTPCall {
+    Some(HTTPParameters {
         url: translated_url,
         form_data,
         body: body_data,

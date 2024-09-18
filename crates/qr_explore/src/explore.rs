@@ -6,7 +6,7 @@ use crate::amos_generation::{
     GeneratedParameter, GenerationOperationWithParameters, ParameterValue,
 };
 use crate::amos_relations::Relation;
-use crate::http_translation::translate_parameters;
+use crate::http_translation::{translate_operation, translate_parameters};
 use crate::meta_properties::{
     self, check_response_equality, check_response_inequality,
     check_state_identity_with_observation, check_state_mutation,
@@ -1054,49 +1054,26 @@ fn build_request(
     let amos_op = matching_op.unwrap();
     let op_meta = amos_op.meta_data.clone();
 
-    let (url, form_data, body, file_data, method) = match op_meta.clone().unwrap() {
-        OperationMetaData::HTTP { url, method } => {
-            if let Some(call) =
-                translate_parameters(&gen_op.parameters, &amos_op.parameters, results, &url)
-            {
-                match &ctx.target {
-                    Target::HTTP { config } => (
-                        format!(
-                            "{}{}:{}{}",
-                            config.protocol.to_string(),
-                            config.base_url,
-                            config.port,
-                            call.url
-                        ),
-                        call.form_data,
-                        call.body,
-                        call.file_data,
-                        method,
-                    ),
-                }
-            } else {
-                // Could not create a valid URL, consider the SEQ as broken
-                warn!(gen_op.name, "Disscarded operation");
-                return None;
-            }
-        }
+    let config = match &ctx.target {
+        Target::HTTP { config } => config,
     };
 
-    debug!(url,);
-    debug!(?body);
-    debug!(?method);
-    debug!(?form_data);
+    let http_operation = translate_operation(config, gen_op, &op_meta, amos_op, results)?;
 
-    let con_method = match method {
+    debug!(?http_operation);
+
+    let con_method = match http_operation.method {
         HTTPMethod::GET => reqwest::Method::GET,
         HTTPMethod::POST => reqwest::Method::POST,
         HTTPMethod::DELETE => reqwest::Method::DELETE,
         HTTPMethod::PUT => reqwest::Method::PUT,
         _ => todo!(),
     };
-    let init_request = ctx.http_client.request(con_method, url.clone());
+    let init_request = ctx
+        .http_client
+        .request(con_method, http_operation.url.clone());
 
-    let request_with_form_data = if let Some(payload) = form_data {
+    let request_with_form_data = if let Some(payload) = http_operation.parameters.form_data {
         init_request.form(&payload)
     } else {
         init_request
@@ -1107,7 +1084,7 @@ fn build_request(
     // be used for binary data or data of 'significant' size. Thus, currently,
     // the operation need to state that specific mime-type in 'consumes', or
     // the type of the parameter is 'file'.
-    let request_with_form_and_file = if let Some(file) = file_data {
+    let request_with_form_and_file = if let Some(file) = http_operation.parameters.file_data {
         let file_form = reqwest::blocking::multipart::Form::new();
         let mut payload = reqwest::blocking::multipart::Part::bytes("Uninitialized".as_bytes());
         let mut param_name = "Uninitialized".to_string();
@@ -1126,14 +1103,14 @@ fn build_request(
         request_with_form_data
     };
 
-    let final_request = if let Some(body) = body {
+    let final_request = if let Some(body) = http_operation.parameters.body {
         // TODO: respect the operations "consumes" mime type
         request_with_form_and_file.json(&body)
     } else {
         request_with_form_and_file
     };
 
-    Some((final_request, url))
+    Some((final_request, http_operation.url))
 }
 
 fn process_response(
