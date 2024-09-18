@@ -14,6 +14,10 @@ Building QuickREST 2 requires a working [Rust](https://rustup.rs/) toolchain.
 
 There is also a Docker-file for building in `./build/Dockerfile`
 
+## Development
+
+To change log levels, use `RUST_LOG` environment variable. For example, `RUST_LOG=info cargo r --bin app`. Read more on logging configuration [here](https://docs.rs/env_logger/latest/env_logger/#enabling-logging).
+
 ## Running
 
 After a build, the UI application executable can be found at `./target/release/app`. The CLI application can be found at `./target/release/cli`.
