@@ -822,12 +822,8 @@ pub enum Target {
 pub struct ExplorationContext {
     pub http_client: reqwest::blocking::Client,
     // TODO: clean up the inputs
-    pub http_send_fn: fn(
-        &ExplorationContext,
-        HTTPCall,
-        &GeneratedOperation,
-        String,
-    ) -> Option<InvokeResult>,
+    pub http_send_fn:
+        fn(&ExplorationContext, HTTPCall, &GeneratedOperation, String) -> Option<InvokeResult>,
 
     pub target: Target,
 
@@ -1170,6 +1166,7 @@ fn process_response(
                         },
                     }),
                 );
+                // TODO: Pull this out
                 ctx.publish_event(Event::Invocation {
                     result: result.clone(),
                     sut_invocation_duration: request_duration,
@@ -1193,6 +1190,36 @@ pub fn invoke_with_reqwest(
     let resp = request.send();
     let request_duration = request_start_time.elapsed();
     process_response(ctx, resp, gen_op, url, request_duration)
+}
+
+pub fn invoke_dry(
+    ctx: &ExplorationContext,
+    _http_operation: HTTPCall,
+    gen_op: &GeneratedOperation,
+    url: String,
+) -> Option<InvokeResult> {
+    let request_start_time = std::time::Instant::now();
+    // This is what dry invoke simulate, so make up a result for now.
+    // The result could possible be controlled from outside
+    let result = InvokeResult::new(
+        gen_op.clone(),
+        "[\"Fake result\"]".to_string(),
+        true,
+        Some(amos::ResultMetaData::HTTP {
+            url,
+            status: http::HTTPStatus::OK,
+        }),
+    );
+
+    let request_duration = request_start_time.elapsed();
+    // TODO: remove this when it's pulled out from 'process_response' and into the main
+    // invoke
+    ctx.publish_event(Event::Invocation {
+        result: result.clone(),
+        sut_invocation_duration: request_duration,
+    });
+
+    Some(result)
 }
 
 pub fn invoke(
@@ -1226,119 +1253,6 @@ pub fn invoke(
     }
 
     debug!("Invocation span exit");
-    ctx.publish_event(Event::InvocationSpanExit {
-        duration: span_start_time.elapsed(),
-    });
-    Some(results)
-}
-
-pub fn dry_invoke(
-    ctx: &ExplorationContext,
-    ops: &[Operation],
-    gen_ops: &[GeneratedOperation],
-) -> Option<Vec<InvokeResult>> {
-    // TODO: Consolidate with the normal invoke
-    // info!("Dry run!");
-
-    let span = span!(Level::TRACE, "HTTP invoke span");
-    let _enter = span.enter();
-
-    let span_start_time = std::time::Instant::now();
-    ctx.publish_event(Event::InvocationSpanEnter {
-        enter: span_start_time,
-    });
-
-    let mut results = Vec::with_capacity(gen_ops.len());
-
-    for gen_op in gen_ops {
-        debug!(operation_name = gen_op.name,);
-        debug!("Invoke: {gen_op:#?}");
-        // TODO: Fix this meta crap
-        let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
-
-        let amos_op = matching_op.unwrap();
-        let op_meta = amos_op.meta_data.clone();
-
-        let (url, form_data, body, method) = match op_meta.clone().unwrap() {
-            OperationMetaData::HTTP { url, method } => {
-                if let Some(call) =
-                    translate_parameters(&gen_op.parameters, &amos_op.parameters, &results, &url)
-                {
-                    match &ctx.target {
-                        Target::HTTP { config } => (
-                            format!(
-                                "{}{}:{}{}",
-                                config.protocol.to_string(),
-                                config.base_url,
-                                config.port,
-                                call.url
-                            ),
-                            call.form_data,
-                            call.body,
-                            method,
-                        ),
-                    }
-                } else {
-                    // Could not create a valid URL, consider the SEQ as broken
-                    warn!(gen_op.name, "Disscarded operation");
-                    return None;
-                }
-            }
-        };
-
-        debug!(url,);
-        debug!(?body);
-        debug!(?method);
-        debug!(?form_data);
-
-        let con_method = match method {
-            HTTPMethod::GET => reqwest::Method::GET,
-            HTTPMethod::POST => reqwest::Method::POST,
-            HTTPMethod::DELETE => reqwest::Method::DELETE,
-            HTTPMethod::PUT => reqwest::Method::PUT,
-            _ => todo!(),
-        };
-        let init_request = ctx.http_client.request(con_method, url.clone());
-
-        let request_with_form_data = if let Some(payload) = form_data {
-            //init_request.body(payload)
-            init_request.form(&payload)
-        } else {
-            init_request
-        };
-
-        let final_request = if let Some(body) = body {
-            // TODO: respect the operations "consumes" mime type
-            request_with_form_data.json(&body)
-        } else {
-            request_with_form_data
-        };
-
-        debug!("{final_request:#?}");
-
-        let request_start_time = std::time::Instant::now();
-        // This is what dry invoke simulate, so make up a result for now.
-        // The result could possible be controlled from outside
-        //let resp = final_request.send();
-        let result = InvokeResult::new(
-            gen_op.clone(),
-            "[\"Fake result\"]".to_string(),
-            true,
-            Some(amos::ResultMetaData::HTTP {
-                url,
-                status: http::HTTPStatus::OK,
-            }),
-        );
-
-        let request_duration = request_start_time.elapsed();
-
-        ctx.publish_event(Event::Invocation {
-            result: result.clone(),
-            sut_invocation_duration: request_duration,
-        });
-        results.push(result)
-    }
-
     ctx.publish_event(Event::InvocationSpanExit {
         duration: span_start_time.elapsed(),
     });

@@ -781,17 +781,10 @@ impl App {
                         false
                     };
 
-                let invoke = if !is_dry_run {
-                    explore::invoke
-                } else {
-                    explore::dry_invoke
-                };
-
                 let http_send_fn = if !is_dry_run {
                     explore::invoke_with_reqwest
                 } else {
-                    // TODO
-                    explore::invoke_with_reqwest
+                    explore::invoke_dry
                 };
 
                 thread::spawn(move || {
@@ -806,7 +799,7 @@ impl App {
                         max_length: 1,
                     };
 
-                    explore::sequence_invoke(context, ops, invoke, ops_to_invoke);
+                    explore::sequence_invoke(context, ops, explore::invoke, ops_to_invoke);
                 });
                 self.exploration_log.push(explore::LogMessage {
                     level: explore::LogLevel::Info,
@@ -956,17 +949,12 @@ impl App {
                                         } else {
                                             false
                                         };
-                                        let invoke = if !is_dry_run {
-                                            explore::invoke
-                                        } else {
-                                            explore::dry_invoke
-                                        };
+                                        let invoke = explore::invoke;
 
                                         let http_send_fn = if !is_dry_run {
                                             explore::invoke_with_reqwest
                                         } else {
-                                            // TODO
-                                            explore::invoke_with_reqwest
+                                            explore::invoke_dry
                                         };
 
                                         thread::spawn(move || {

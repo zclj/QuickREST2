@@ -58,8 +58,7 @@ pub fn spawn_exploration(
         let http_send_fn = if !is_dry_run {
             explore::invoke_with_reqwest
         } else {
-            // TODO
-            explore::invoke_with_reqwest
+            explore::invoke_dry
         };
 
         let mut context = explore::ExplorationContext {
@@ -76,12 +75,7 @@ pub fn spawn_exploration(
 
         let query_ops = selected_query_ops;
 
-        // TODO: this is spread out, fix
-        let invoke = if !is_dry_run {
-            explore::invoke
-        } else {
-            explore::dry_invoke
-        };
+        let invoke = explore::invoke;
 
         match bhvr {
             behaviours::Behaviour::Property => {
