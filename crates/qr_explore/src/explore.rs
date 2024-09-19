@@ -6,7 +6,7 @@ use crate::amos_generation::{
     GeneratedParameter, GenerationOperationWithParameters, ParameterValue,
 };
 use crate::amos_relations::Relation;
-use crate::http_translation::{translate_operation, translate_parameters};
+use crate::http_translation::{translate_operation, translate_parameters, HTTPCall};
 use crate::meta_properties::{
     self, check_response_equality, check_response_inequality,
     check_state_identity_with_observation, check_state_mutation,
@@ -821,6 +821,13 @@ pub enum Target {
 
 pub struct ExplorationContext {
     pub http_client: reqwest::blocking::Client,
+    // TODO: clean up the inputs
+    pub http_send_fn: fn(
+        &ExplorationContext,
+        HTTPCall,
+        &GeneratedOperation,
+        String,
+    ) -> Option<InvokeResult>,
 
     pub target: Target,
 
@@ -1042,26 +1049,10 @@ pub fn explore(
     None
 }
 
-fn build_request(
+fn build_reqwest_request(
     ctx: &ExplorationContext,
-    ops: &[Operation],
-    gen_op: &GeneratedOperation,
-    results: &[InvokeResult],
-) -> Option<(reqwest::blocking::RequestBuilder, String)> {
-    // TODO: Fix this meta crap
-    let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
-
-    let amos_op = matching_op.unwrap();
-    let op_meta = amos_op.meta_data.clone();
-
-    let config = match &ctx.target {
-        Target::HTTP { config } => config,
-    };
-
-    let http_operation = translate_operation(config, gen_op, &op_meta, amos_op, results)?;
-
-    debug!(?http_operation);
-
+    http_operation: &HTTPCall,
+) -> reqwest::blocking::RequestBuilder {
     let con_method = match http_operation.method {
         HTTPMethod::GET => reqwest::Method::GET,
         HTTPMethod::POST => reqwest::Method::POST,
@@ -1073,7 +1064,7 @@ fn build_request(
         .http_client
         .request(con_method, http_operation.url.clone());
 
-    let request_with_form_data = if let Some(payload) = http_operation.parameters.form_data {
+    let request_with_form_data = if let Some(payload) = &http_operation.parameters.form_data {
         init_request.form(&payload)
     } else {
         init_request
@@ -1084,7 +1075,7 @@ fn build_request(
     // be used for binary data or data of 'significant' size. Thus, currently,
     // the operation need to state that specific mime-type in 'consumes', or
     // the type of the parameter is 'file'.
-    let request_with_form_and_file = if let Some(file) = http_operation.parameters.file_data {
+    let request_with_form_and_file = if let Some(file) = &http_operation.parameters.file_data {
         let file_form = reqwest::blocking::multipart::Form::new();
         let mut payload = reqwest::blocking::multipart::Part::bytes("Uninitialized".as_bytes());
         let mut param_name = "Uninitialized".to_string();
@@ -1103,14 +1094,36 @@ fn build_request(
         request_with_form_data
     };
 
-    let final_request = if let Some(body) = http_operation.parameters.body {
+    if let Some(body) = &http_operation.parameters.body {
         // TODO: respect the operations "consumes" mime type
         request_with_form_and_file.json(&body)
     } else {
         request_with_form_and_file
+    }
+}
+
+fn build_request(
+    ctx: &ExplorationContext,
+    ops: &[Operation],
+    gen_op: &GeneratedOperation,
+    results: &[InvokeResult],
+) -> Option<(HTTPCall, String)> {
+    // TODO: Fix this meta crap
+    let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
+
+    let amos_op = matching_op.unwrap();
+    let op_meta = amos_op.meta_data.clone();
+
+    let config = match &ctx.target {
+        Target::HTTP { config } => config,
     };
 
-    Some((final_request, http_operation.url))
+    let http_operation = translate_operation(config, gen_op, &op_meta, amos_op, results)?;
+    debug!(?http_operation);
+
+    // TODO: This should not be nessesary
+    let url = http_operation.url.clone();
+    Some((http_operation, url))
 }
 
 fn process_response(
@@ -1169,6 +1182,19 @@ fn process_response(
     }
 }
 
+pub fn invoke_with_reqwest(
+    ctx: &ExplorationContext,
+    http_operation: HTTPCall,
+    gen_op: &GeneratedOperation,
+    url: String,
+) -> Option<InvokeResult> {
+    let request = build_reqwest_request(ctx, &http_operation);
+    let request_start_time = std::time::Instant::now();
+    let resp = request.send();
+    let request_duration = request_start_time.elapsed();
+    process_response(ctx, resp, gen_op, url, request_duration)
+}
+
 pub fn invoke(
     ctx: &ExplorationContext,
     ops: &[Operation],
@@ -1190,16 +1216,11 @@ pub fn invoke(
         debug!("Invoke: {gen_op:#?}");
 
         let (final_request, url) = build_request(ctx, ops, gen_op, &results)?;
-
-        //println!("final: {:#?} ", final_request);
-
         trace!("{final_request:#?}");
 
-        let request_start_time = std::time::Instant::now();
-        let resp = final_request.send();
-        let request_duration = request_start_time.elapsed();
+        let resp = (ctx.http_send_fn)(ctx, final_request, gen_op, url);
 
-        if let Some(invoke_result) = process_response(ctx, resp, gen_op, url, request_duration) {
+        if let Some(invoke_result) = resp {
             results.push(invoke_result)
         }
     }

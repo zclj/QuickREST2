@@ -54,8 +54,17 @@ pub fn spawn_exploration(
     let sut_target = target.clone();
 
     thread::spawn(move || {
+        // TODO: this is spread out, fix
+        let http_send_fn = if !is_dry_run {
+            explore::invoke_with_reqwest
+        } else {
+            // TODO
+            explore::invoke_with_reqwest
+        };
+
         let mut context = explore::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn,
             target: sut_target,
             query_operation: None,
             tx: Some(channel),

@@ -192,6 +192,7 @@ fn main() {
 
                         let ctx = explore::ExplorationContext {
                             http_client: reqwest::blocking::Client::new(),
+                            http_send_fn: explore::invoke_with_reqwest,
                             target,
                             query_operation: None,
                             tx: Some(exploration_log_tx),

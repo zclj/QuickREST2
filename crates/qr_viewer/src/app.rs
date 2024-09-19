@@ -787,9 +787,17 @@ impl App {
                     explore::dry_invoke
                 };
 
+                let http_send_fn = if !is_dry_run {
+                    explore::invoke_with_reqwest
+                } else {
+                    // TODO
+                    explore::invoke_with_reqwest
+                };
+
                 thread::spawn(move || {
                     let context = &explore::ExplorationContext {
                         http_client: reqwest::blocking::Client::new(),
+                        http_send_fn,
                         target,
                         query_operation: None,
                         tx: Some(channel),
@@ -954,9 +962,17 @@ impl App {
                                             explore::dry_invoke
                                         };
 
+                                        let http_send_fn = if !is_dry_run {
+                                            explore::invoke_with_reqwest
+                                        } else {
+                                            // TODO
+                                            explore::invoke_with_reqwest
+                                        };
+
                                         thread::spawn(move || {
                                             let context = &explore::ExplorationContext {
                                                 http_client: reqwest::blocking::Client::new(),
+                                                http_send_fn,
                                                 target,
                                                 query_operation: None,
                                                 tx: Some(channel),
