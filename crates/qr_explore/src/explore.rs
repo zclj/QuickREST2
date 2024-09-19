@@ -1285,6 +1285,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1379,6 +1380,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1483,6 +1485,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1587,6 +1590,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1681,6 +1685,7 @@ mod tests {
 
         let mut ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1839,6 +1844,7 @@ mod tests {
 
         let mut ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -1964,6 +1970,7 @@ mod tests {
 
         let mut ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -2131,6 +2138,7 @@ mod tests {
 
         let mut ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -2265,6 +2273,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
@@ -2352,6 +2361,7 @@ mod tests {
 
         let ctx = sut::ExplorationContext {
             http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
             target,
             query_operation: None,
             tx: Some(exploration_log_tx),
