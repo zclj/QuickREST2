@@ -107,3 +107,20 @@ impl std::fmt::Display for Protocol {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct HTTPConfiguration {
+    pub base_url: String,
+    pub port: u16,
+    pub protocol: Protocol,
+}
+
+impl HTTPConfiguration {
+    pub fn new(base_url: String, port: u16, protocol: Protocol) -> Self {
+        Self {
+            base_url,
+            port,
+            protocol,
+        }
+    }
+}

@@ -176,7 +176,7 @@ fn main() {
                         };
 
                         let target = explore::Target::HTTP {
-                            config: explore::HTTPConfiguration::new(
+                            config: http::HTTPConfiguration::new(
                                 sut.hostname.host().unwrap().to_string(),
                                 sut.port,
                                 scheme,
@@ -355,7 +355,7 @@ fn main() {
             };
 
             let target = explore::Target::HTTP {
-                config: explore::HTTPConfiguration::new(
+                config: http::HTTPConfiguration::new(
                     sut.hostname.host().unwrap().to_string(),
                     sut.port,
                     scheme,

@@ -184,7 +184,7 @@ impl App {
 
     fn create_target_from_settings(&self) -> explore::Target {
         explore::Target::HTTP {
-            config: explore::HTTPConfiguration {
+            config: http::HTTPConfiguration {
                 base_url: self.app_state.target.base_url.clone(),
                 port: self.app_state.target.port.parse().unwrap(),
                 protocol: http::Protocol::HTTP,

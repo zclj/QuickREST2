@@ -15,8 +15,7 @@ use crate::amos_generation::GeneratedOperation;
 use crate::amos_generation::{GeneratedParameter, ParameterValue};
 use crate::amos_relations::Relation;
 use crate::amos_relations::RelationInfo;
-use crate::explore::HTTPConfiguration;
-use qr_http_resource::http::{HTTPMethod, HTTPParameterTarget};
+use qr_http_resource::http::{HTTPConfiguration, HTTPMethod, HTTPParameterTarget};
 
 #[derive(Debug, PartialEq)]
 pub struct HTTPParameters {

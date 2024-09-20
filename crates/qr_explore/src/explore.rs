@@ -599,25 +599,8 @@ pub fn explore_state_identity(
 }
 
 #[derive(Debug, Clone)]
-pub struct HTTPConfiguration {
-    pub base_url: String,
-    pub port: u16,
-    pub protocol: http::Protocol,
-}
-
-impl HTTPConfiguration {
-    pub fn new(base_url: String, port: u16, protocol: http::Protocol) -> Self {
-        Self {
-            base_url,
-            port,
-            protocol,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum Target {
-    HTTP { config: HTTPConfiguration },
+    HTTP { config: http::HTTPConfiguration },
 }
 
 pub struct ExplorationContext {
@@ -1079,7 +1062,7 @@ mod tests {
     #[test]
     fn explore_response_inequality_no_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1174,7 +1157,7 @@ mod tests {
     #[test]
     fn explore_response_inequality_with_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1279,7 +1262,7 @@ mod tests {
     #[test]
     fn explore_response_equality_with_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1384,7 +1367,7 @@ mod tests {
     #[test]
     fn explore_response_equality_no_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1479,7 +1462,7 @@ mod tests {
     #[test]
     fn explore_state_mutation_with_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1638,7 +1621,7 @@ mod tests {
     #[test]
     fn explore_state_mutation_no_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1764,7 +1747,7 @@ mod tests {
     #[test]
     fn explore_state_identity_with_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -1932,7 +1915,7 @@ mod tests {
     #[test]
     fn explore_state_identity_no_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -2067,7 +2050,7 @@ mod tests {
     #[test]
     fn response_check_with_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
@@ -2155,7 +2138,7 @@ mod tests {
     #[test]
     fn response_check_with_no_example() {
         let target = sut::Target::HTTP {
-            config: sut::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
         };
 
         let (exploration_log_tx, exploration_log_rx) = std::sync::mpsc::channel();
