@@ -131,9 +131,9 @@ impl ParseContext {
     }
 
     fn push_warning(&mut self, mut message: ParseMessage) {
-        message.path = self.current_path.clone();
-        message.operation = self.current_operation.clone();
-        message.method = self.current_method.clone();
+        message.path.clone_from(&self.current_path);
+        message.operation.clone_from(&self.current_operation);
+        message.method.clone_from(&self.current_method);
         self.warnings.push(message)
     }
 }

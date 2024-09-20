@@ -67,7 +67,7 @@ fn process_results(
                 if let Some(meta) = &amos_op.meta_data {
                     match meta {
                         OperationMetaData::HTTP { url, method } => {
-                            current_url = url.clone();
+                            current_url.clone_from(url);
                             current_method = method.clone();
                         }
                     }
