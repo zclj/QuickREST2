@@ -3,7 +3,7 @@ use eframe::egui;
 use qr_explore::amos;
 use qr_explore::amos_generation as agen;
 use qr_explore::behaviours;
-use qr_explore::explore;
+use qr_explore::sequence;
 
 use crate::app::App;
 use crate::fuzzing;
@@ -114,7 +114,7 @@ fn nav_details_panel(app: &mut App, ui: &mut egui::Ui) {
             ui.text_edit_singleline(&mut app.generate_string_expression);
 
             if ui.button("Banana Cakes").clicked() {
-                let value = explore::banana_cakes_generation(&app.generate_string_expression);
+                let value = sequence::banana_cakes_generation(&app.generate_string_expression);
                 if let agen::ParameterValue::StringValue { value, .. } = value {
                     app.generated_values.push(value);
                 }

@@ -12,6 +12,7 @@ pub mod exploration_settings;
 pub mod explore;
 pub mod http_translation;
 pub mod meta_properties;
+pub mod sequence;
 pub mod synthesize;
 
 pub fn spawn_exploration(

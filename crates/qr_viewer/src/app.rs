@@ -7,12 +7,12 @@ use crate::main_navigation;
 use crate::sequencer;
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use qr_explore::amos;
 use qr_explore::amos::TranslationResult;
 use qr_explore::amos::AMOS;
 use qr_explore::behaviours::Behaviour;
 use qr_explore::exploration_settings::StateMutationSettings;
 use qr_explore::explore;
+use qr_explore::{amos, sequence};
 use qr_http_resource::http;
 use qr_open_api::open_api::ParseResult;
 use qr_specification_manager as spec;
@@ -799,7 +799,7 @@ impl App {
                         max_length: 1,
                     };
 
-                    explore::sequence_invoke(context, ops, explore::invoke, ops_to_invoke);
+                    sequence::sequence_invoke(context, ops, explore::invoke, ops_to_invoke);
                 });
                 self.exploration_log.push(explore::LogMessage {
                     level: explore::LogLevel::Info,
@@ -969,7 +969,7 @@ impl App {
                                                 max_length: 1,
                                             };
 
-                                            explore::sequence_invoke(
+                                            sequence::sequence_invoke(
                                                 context,
                                                 ops,
                                                 invoke,
