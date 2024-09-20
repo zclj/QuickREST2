@@ -3,7 +3,7 @@ use crate::amos_buckets::{BucketItem, Buckets};
 use crate::amos_relations::{self, Relation};
 use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
+use tracing::warn;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ParameterValue {

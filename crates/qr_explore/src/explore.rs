@@ -1,17 +1,17 @@
+use crate::amos;
 use crate::amos::{InvokeResult, Operation, OperationMetaData};
 use crate::amos_buckets::Buckets;
-use crate::amos_generation::{self, gen_buckets_5, gen_static_operation_with_params, QueryOptions};
+use crate::amos_generation::{self, gen_static_operation_with_params, QueryOptions};
 use crate::amos_generation::{
     gen_banana_cake_value, gen_pinned_operation_sequence_with_params, GeneratedOperation,
     GeneratedParameter, GenerationOperationWithParameters, ParameterValue,
 };
 use crate::amos_relations::Relation;
-use crate::http_translation::{translate_operation, translate_parameters, HTTPCall};
+use crate::http_translation::{translate_operation, HTTPCall};
 use crate::meta_properties::{
     self, check_response_equality, check_response_inequality,
     check_state_identity_with_observation, check_state_mutation,
 };
-use crate::{amos, amos_buckets};
 use proptest::strategy::{Strategy, ValueTree};
 use proptest::test_runner::{Config, FileFailurePersistence, TestRunner};
 use qr_http_resource::http::{self, HTTPMethod};
@@ -711,7 +711,7 @@ pub fn explore_state_identity(
                 "Query Precedence: {query_precedence}, Suggested sequence len: {suggested_seq_len}"
             );
 
-            let query_options = QueryOptions {
+            let _query_options = QueryOptions {
                 precedence: query_bucket.precedence,
                 slack_min: 0,
                 slack_max: 2,
