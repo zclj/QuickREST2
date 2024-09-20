@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HTTPStatus {
@@ -123,4 +123,19 @@ impl HTTPConfiguration {
             protocol,
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct HTTPParameters {
+    pub url: String,
+    pub form_data: Option<HashMap<String, String>>,
+    pub file_data: Option<HashMap<String, String>>,
+    pub body: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug)]
+pub struct HTTPCall {
+    pub url: String,
+    pub method: HTTPMethod,
+    pub parameters: HTTPParameters,
 }

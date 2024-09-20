@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-
-# external
+# External
 serde.workspace = true
 serde_json.workspace = true
+reqwest.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true

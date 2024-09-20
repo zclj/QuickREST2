@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use qr_http_resource::http::HTTPCall;
+use qr_http_resource::http::HTTPParameters;
 use serde_json::Value;
 use tracing::debug;
 use tracing::error;
@@ -15,15 +17,7 @@ use crate::amos_generation::GeneratedOperation;
 use crate::amos_generation::{GeneratedParameter, ParameterValue};
 use crate::amos_relations::Relation;
 use crate::amos_relations::RelationInfo;
-use qr_http_resource::http::{HTTPConfiguration, HTTPMethod, HTTPParameterTarget};
-
-#[derive(Debug, PartialEq)]
-pub struct HTTPParameters {
-    pub url: String,
-    pub form_data: Option<HashMap<String, String>>,
-    pub file_data: Option<HashMap<String, String>>,
-    pub body: Option<HashMap<String, String>>,
-}
+use qr_http_resource::http::{HTTPConfiguration, HTTPParameterTarget};
 
 pub fn parameters_to_form_data(params: &[GeneratedParameter]) -> HashMap<String, String> {
     let mut form_data = HashMap::new();
@@ -117,13 +111,6 @@ fn parse_response(
     }
 
     fallback.clone()
-}
-
-#[derive(Debug)]
-pub struct HTTPCall {
-    pub url: String,
-    pub method: HTTPMethod,
-    pub parameters: HTTPParameters,
 }
 
 pub fn translate_operation(
