@@ -679,7 +679,7 @@ mod tests {
             ],
         );
 
-        let mut runner = TestRunner::new_with_rng(
+        let runner = TestRunner::new_with_rng(
             Config {
                 failure_persistence: Some(Box::new(FileFailurePersistence::Off)),
                 ..Config::default()

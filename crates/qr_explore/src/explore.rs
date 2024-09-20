@@ -1264,12 +1264,12 @@ mod tests {
 
     use std::thread;
 
-    use qr_http_resource::http::{self, HTTPMethod, HTTPParameterTarget};
+    use qr_http_resource::http::{self, HTTPMethod};
 
     use crate::{
         amos::{
             InvokeResult, Operation, OperationInfo, OperationMetaData, Parameter,
-            ParameterMetaData, ParameterOwnership, Response, ResultMetaData, Schema,
+            ParameterOwnership, Response, ResultMetaData, Schema,
         },
         amos_generation::{GeneratedOperation, GeneratedParameter, ParameterValue},
         explore as sut,
