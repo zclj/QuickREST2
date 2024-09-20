@@ -6,7 +6,7 @@ use crate::amos_generation::{
     GenerationOperationWithParameters,
 };
 use crate::amos_generation::{gen_static_operation_with_params, QueryOptions};
-use crate::http_translation::translate_operation;
+use crate::http_translation::translate_generated_operation_to_http_call;
 use crate::meta_properties::{
     self, check_response_equality, check_response_inequality,
     check_state_identity_with_observation, check_state_mutation,
@@ -770,30 +770,6 @@ pub fn explore(
     None
 }
 
-fn build_request(
-    ctx: &ExplorationContext,
-    ops: &[Operation],
-    gen_op: &GeneratedOperation,
-    results: &[InvokeResult],
-) -> Option<(HTTPCall, String)> {
-    // TODO: Fix this meta crap
-    let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
-
-    let amos_op = matching_op.unwrap();
-    let op_meta = amos_op.meta_data.clone();
-
-    let config = match &ctx.target {
-        Target::HTTP { config } => config,
-    };
-
-    let http_operation = translate_operation(config, gen_op, &op_meta, amos_op, results)?;
-    debug!(?http_operation);
-
-    // TODO: This should not be nessesary
-    let url = http_operation.url.clone();
-    Some((http_operation, url))
-}
-
 fn process_response(
     ctx: &ExplorationContext,
     response: Result<reqwest::blocking::Response, reqwest::Error>,
@@ -851,6 +827,7 @@ fn process_response(
     }
 }
 
+// TODO: Put all reqwest specifics in the http_resource crate
 pub fn invoke_with_reqwest(
     ctx: &ExplorationContext,
     http_operation: HTTPCall,
@@ -910,11 +887,16 @@ pub fn invoke(
 
     let mut results = Vec::with_capacity(gen_ops.len());
 
+    let config = match &ctx.target {
+        Target::HTTP { config } => config,
+    };
+
     for gen_op in gen_ops {
         debug!(operation_name = gen_op.name,);
         debug!("Invoke: {gen_op:#?}");
 
-        let (final_request, url) = build_request(ctx, ops, gen_op, &results)?;
+        let (final_request, url) =
+            translate_generated_operation_to_http_call(config, ops, gen_op, &results)?;
         trace!("{final_request:#?}");
 
         let resp = (ctx.http_send_fn)(ctx, final_request, gen_op, url);

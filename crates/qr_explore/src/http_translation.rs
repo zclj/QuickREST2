@@ -113,6 +113,26 @@ fn parse_response(
     fallback.clone()
 }
 
+pub fn translate_generated_operation_to_http_call(
+    config: &HTTPConfiguration,
+    ops: &[Operation],
+    gen_op: &GeneratedOperation,
+    results: &[InvokeResult],
+) -> Option<(HTTPCall, String)> {
+    // TODO: Fix this meta crap
+    let matching_op = ops.iter().find(|op| op.info.name == gen_op.name);
+
+    let amos_op = matching_op.unwrap();
+    let op_meta = amos_op.meta_data.clone();
+
+    let http_operation = translate_operation(config, gen_op, &op_meta, amos_op, results)?;
+    debug!(?http_operation);
+
+    // TODO: This should not be nessesary
+    let url = http_operation.url.clone();
+    Some((http_operation, url))
+}
+
 pub fn translate_operation(
     config: &HTTPConfiguration,
     gen_op: &GeneratedOperation,
