@@ -99,11 +99,11 @@ pub enum Protocol {
     HTTPS,
 }
 
-impl ToString for Protocol {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Protocol::HTTP => "http://".to_string(),
-            Protocol::HTTPS => "https://".to_string(),
+            Protocol::HTTP => write!(f, "http://"),
+            Protocol::HTTPS => write!(f, "https://"),
         }
     }
 }

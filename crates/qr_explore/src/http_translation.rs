@@ -141,10 +141,7 @@ pub fn translate_operation(
             {
                 let url = format!(
                     "{}{}:{}{}",
-                    config.protocol.to_string(),
-                    config.base_url,
-                    config.port,
-                    call.url
+                    config.protocol, config.base_url, config.port, call.url
                 );
                 Some(HTTPCall {
                     url,
