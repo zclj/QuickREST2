@@ -1,4 +1,6 @@
-use crate::http::{HTTPCall, HTTPMethod};
+use tracing::{debug, error, warn};
+
+use crate::http::{HTTPCall, HTTPMethod, HTTPResult, HTTPStatus};
 
 pub fn build_reqwest_request(
     client: &reqwest::blocking::Client,
@@ -48,5 +50,56 @@ pub fn build_reqwest_request(
         request_with_form_and_file.json(&body)
     } else {
         request_with_form_and_file
+    }
+}
+
+pub fn invoke_with_reqwest(
+    client: &reqwest::blocking::Client,
+    http_operation: HTTPCall,
+) -> Option<HTTPResult> {
+    let request = build_reqwest_request(client, &http_operation);
+    let resp = request.send();
+    process_reqwest_response(resp)
+}
+
+fn process_reqwest_response(
+    response: Result<reqwest::blocking::Response, reqwest::Error>,
+) -> Option<HTTPResult> {
+    match response {
+        Err(e) => {
+            error!("HTTP Invoke error: {}", e);
+            None
+        }
+        Ok(r) => {
+            debug!("Response: {:#?}", r);
+            let status = r.status();
+            let _server_error = &r.status().is_server_error();
+            let success = &r.status().is_success();
+
+            if let Ok(t) = &r.text() {
+                Some(HTTPResult {
+                    status: match status.as_u16() {
+                        200 => HTTPStatus::OK,
+                        201 => HTTPStatus::Created,
+                        204 => HTTPStatus::NoContent,
+                        400 => HTTPStatus::BadRequest,
+                        401 => HTTPStatus::Unauthorized,
+                        403 => HTTPStatus::Forbidden,
+                        404 => HTTPStatus::NotFound,
+                        405 => HTTPStatus::MethodNotAllowed,
+                        415 => HTTPStatus::UnsupportedMediaType,
+                        500 => HTTPStatus::InternalServerError,
+                        _ => {
+                            warn!("Unsupported status code: {}", status.as_u16());
+                            HTTPStatus::Unsupported
+                        }
+                    },
+                    payload: t.clone(),
+                    success: *success,
+                })
+            } else {
+                None
+            }
+        }
     }
 }

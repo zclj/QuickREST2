@@ -139,3 +139,10 @@ pub struct HTTPCall {
     pub method: HTTPMethod,
     pub parameters: HTTPParameters,
 }
+
+#[derive(Debug)]
+pub struct HTTPResult {
+    pub status: HTTPStatus,
+    pub payload: String,
+    pub success: bool,
+}

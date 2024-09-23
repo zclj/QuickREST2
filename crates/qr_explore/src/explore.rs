@@ -21,7 +21,7 @@ use proptest::test_runner::{Config, FileFailurePersistence, TestRunner};
 use qr_http_resource::http::{self, HTTPCall, HTTPMethod};
 use qr_http_resource::reqwest_http;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, span, trace, warn, Level};
+use tracing::{debug, info, span, trace, Level};
 
 #[derive(Debug, PartialEq)]
 pub enum LogLevel {
@@ -606,9 +606,7 @@ pub enum Target {
 
 pub struct ExplorationContext {
     pub http_client: reqwest::blocking::Client,
-    // TODO: clean up the inputs
-    pub http_send_fn:
-        fn(&ExplorationContext, HTTPCall, &GeneratedOperation, String) -> Option<InvokeResult>,
+    pub http_send_fn: fn(&ExplorationContext, HTTPCall) -> Option<http::HTTPResult>,
 
     pub target: Target,
 
@@ -770,105 +768,38 @@ pub fn explore(
     None
 }
 
-fn process_response(
-    ctx: &ExplorationContext,
-    response: Result<reqwest::blocking::Response, reqwest::Error>,
+fn http_response_to_invoke_result(
+    http_response: http::HTTPResult,
     gen_op: &GeneratedOperation,
     url: String,
-    request_duration: std::time::Duration,
-) -> Option<InvokeResult> {
-    match response {
-        Err(e) => {
-            error!("HTTP Invoke error: {}", e);
-            None
-        }
-        Ok(r) => {
-            debug!("Response: {:#?}", r);
-            let status = r.status();
-            let _server_error = &r.status().is_server_error();
-            let success = &r.status().is_success();
-
-            if let Ok(t) = &r.text() {
-                let result = InvokeResult::new(
-                    gen_op.clone(),
-                    t.clone(),
-                    //content,
-                    *success,
-                    Some(amos::ResultMetaData::HTTP {
-                        url,
-                        status: match status.as_u16() {
-                            200 => http::HTTPStatus::OK,
-                            201 => http::HTTPStatus::Created,
-                            204 => http::HTTPStatus::NoContent,
-                            400 => http::HTTPStatus::BadRequest,
-                            401 => http::HTTPStatus::Unauthorized,
-                            403 => http::HTTPStatus::Forbidden,
-                            404 => http::HTTPStatus::NotFound,
-                            405 => http::HTTPStatus::MethodNotAllowed,
-                            415 => http::HTTPStatus::UnsupportedMediaType,
-                            500 => http::HTTPStatus::InternalServerError,
-                            _ => {
-                                warn!("Unsupported status code: {}", status.as_u16());
-                                http::HTTPStatus::Unsupported
-                            }
-                        },
-                    }),
-                );
-                // TODO: Pull this out
-                ctx.publish_event(Event::Invocation {
-                    result: result.clone(),
-                    sut_invocation_duration: request_duration,
-                });
-                return Some(result);
-            };
-
-            None
-        }
-    }
+) -> InvokeResult {
+    InvokeResult::new(
+        gen_op.clone(),
+        http_response.payload,
+        http_response.success,
+        Some(amos::ResultMetaData::HTTP {
+            url,
+            status: http_response.status,
+        }),
+    )
 }
 
-// TODO: Put all reqwest specifics in the http_resource crate
 pub fn invoke_with_reqwest(
     ctx: &ExplorationContext,
     http_operation: HTTPCall,
-    gen_op: &GeneratedOperation,
-    url: String,
-) -> Option<InvokeResult> {
-    let request = reqwest_http::build_reqwest_request(&ctx.http_client, &http_operation);
-    let request_start_time = std::time::Instant::now();
-    let resp = request.send();
-    let request_duration = request_start_time.elapsed();
-    process_response(ctx, resp, gen_op, url, request_duration)
+) -> Option<http::HTTPResult> {
+    reqwest_http::invoke_with_reqwest(&ctx.http_client, http_operation)
 }
 
 pub fn invoke_dry(
-    ctx: &ExplorationContext,
+    _ctx: &ExplorationContext,
     _http_operation: HTTPCall,
-    gen_op: &GeneratedOperation,
-    url: String,
-) -> Option<InvokeResult> {
-    let request_start_time = std::time::Instant::now();
-    // This is what dry invoke simulate, so make up a result for now.
-    // The result could possible be controlled from outside
-    let result = InvokeResult::new(
-        gen_op.clone(),
-        "[\"Fake result\"]".to_string(),
-        true,
-        Some(amos::ResultMetaData::HTTP {
-            url,
-            status: http::HTTPStatus::OK,
-        }),
-    );
-
-    let request_duration = request_start_time.elapsed();
-    // TODO: remove this when it's pulled out from 'process_response' and into the main
-    // invoke
-    ctx.publish_event(Event::Invocation {
-        result: result.clone(),
-        sut_invocation_duration: request_duration,
-    });
-
-    Some(result)
+) -> Option<http::HTTPResult> {
+    Some(http::HTTPResult {
+        status: http::HTTPStatus::OK,
+        payload: "[\"Fake result\"]".to_string(),
+        success: true,
+    })
 }
 
 pub fn invoke(
@@ -883,7 +814,6 @@ pub fn invoke(
     ctx.publish_event(Event::InvocationSpanEnter {
         enter: span_start_time,
     });
-    // TODO: package this with the span
 
     let mut results = Vec::with_capacity(gen_ops.len());
 
@@ -899,10 +829,17 @@ pub fn invoke(
             translate_generated_operation_to_http_call(config, ops, gen_op, &results)?;
         trace!("{final_request:#?}");
 
-        let resp = (ctx.http_send_fn)(ctx, final_request, gen_op, url);
+        let request_start_time = std::time::Instant::now();
+        let http_resp = (ctx.http_send_fn)(ctx, final_request);
+        let request_duration = request_start_time.elapsed();
 
-        if let Some(invoke_result) = resp {
-            results.push(invoke_result)
+        if let Some(invoke_result) = http_resp {
+            let resp = http_response_to_invoke_result(invoke_result, gen_op, url);
+            ctx.publish_event(Event::Invocation {
+                result: resp.clone(),
+                sut_invocation_duration: request_duration,
+            });
+            results.push(resp);
         }
     }
 
