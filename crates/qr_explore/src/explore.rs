@@ -1,4 +1,3 @@
-use crate::amos;
 use crate::amos::{InvokeResult, Operation, OperationMetaData};
 use crate::amos_buckets::Buckets;
 use crate::amos_generation::{
@@ -6,7 +5,7 @@ use crate::amos_generation::{
     GenerationOperationWithParameters,
 };
 use crate::amos_generation::{gen_static_operation_with_params, QueryOptions};
-use crate::http_translation::translate_generated_operation_to_http_call;
+use crate::http_translation::{translate_generated_operation_to_http_call, translate_http_result};
 use crate::meta_properties::{
     self, check_response_equality, check_response_inequality,
     check_state_identity_with_observation, check_state_mutation,
@@ -768,22 +767,6 @@ pub fn explore(
     None
 }
 
-fn http_response_to_invoke_result(
-    http_response: http::HTTPResult,
-    gen_op: &GeneratedOperation,
-    url: String,
-) -> InvokeResult {
-    InvokeResult::new(
-        gen_op.clone(),
-        http_response.payload,
-        http_response.success,
-        Some(amos::ResultMetaData::HTTP {
-            url,
-            status: http_response.status,
-        }),
-    )
-}
-
 pub fn invoke_with_reqwest(
     ctx: &ExplorationContext,
     http_operation: HTTPCall,
@@ -834,7 +817,7 @@ pub fn invoke(
         let request_duration = request_start_time.elapsed();
 
         if let Some(invoke_result) = http_resp {
-            let resp = http_response_to_invoke_result(invoke_result, gen_op, url);
+            let resp = translate_http_result(invoke_result, gen_op, url);
             ctx.publish_event(Event::Invocation {
                 result: resp.clone(),
                 sut_invocation_duration: request_duration,

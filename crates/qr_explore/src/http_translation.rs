@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use qr_http_resource::http;
 use qr_http_resource::http::HTTPCall;
 use qr_http_resource::http::HTTPParameters;
 use serde_json::Value;
@@ -7,6 +8,7 @@ use tracing::debug;
 use tracing::error;
 use tracing::warn;
 
+use crate::amos;
 use crate::amos::InvokeResult;
 use crate::amos::Operation;
 use crate::amos::OperationMetaData;
@@ -161,6 +163,22 @@ pub fn translate_operation(
             }
         }
     }
+}
+
+pub fn translate_http_result(
+    http_response: http::HTTPResult,
+    gen_op: &GeneratedOperation,
+    url: String,
+) -> InvokeResult {
+    InvokeResult::new(
+        gen_op.clone(),
+        http_response.payload,
+        http_response.success,
+        Some(amos::ResultMetaData::HTTP {
+            url,
+            status: http_response.status,
+        }),
+    )
 }
 
 pub fn translate_parameters(
