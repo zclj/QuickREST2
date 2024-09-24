@@ -850,6 +850,87 @@ mod tests {
     };
 
     #[test]
+    fn invoke_with_dry() {
+        let target = sut::Target::HTTP {
+            config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
+        };
+
+        let (exploration_log_tx, _exploration_log_rx) = std::sync::mpsc::channel();
+
+        let ctx = sut::ExplorationContext {
+            http_client: reqwest::blocking::Client::new(),
+            http_send_fn: sut::invoke_dry,
+            target,
+            query_operation: None,
+            tx: Some(exploration_log_tx),
+            number_of_tests: 1,
+            min_length: 1,
+            max_length: 1,
+        };
+
+        let op = Operation {
+            info: OperationInfo {
+                name: "get_persons".to_string(),
+                key: "operation/get_persons".to_string(),
+            },
+            parameters: vec![],
+            responses: vec![Response {
+                name: "successful operation".to_string(),
+                schema: Schema::ArrayOfRefItems("person".to_string()),
+            }],
+            meta_data: Some(OperationMetaData::HTTP {
+                url: "/persons".to_string(),
+                method: HTTPMethod::GET,
+            }),
+        };
+
+        let generated = vec![
+            GeneratedOperation {
+                name: "get_persons".to_string(),
+                parameters: vec![],
+            },
+            GeneratedOperation {
+                name: "get_persons".to_string(),
+                parameters: vec![],
+            },
+        ];
+
+        let operations = vec![op.clone()];
+
+        let invoke_result = sut::invoke(&ctx, &operations, &generated);
+
+        assert_eq!(
+            invoke_result,
+            Some(vec![
+                InvokeResult {
+                    operation: GeneratedOperation {
+                        name: "get_persons".to_string(),
+                        parameters: vec![]
+                    },
+                    result: "[\"Fake result\"]".to_string(),
+                    success: true,
+                    meta_data: Some(ResultMetaData::HTTP {
+                        url: "http://foo:123/persons".to_string(),
+                        status: http::HTTPStatus::OK
+                    })
+                },
+                InvokeResult {
+                    operation: GeneratedOperation {
+                        name: "get_persons".to_string(),
+                        parameters: vec![]
+                    },
+                    result: "[\"Fake result\"]".to_string(),
+                    success: true,
+                    meta_data: Some(ResultMetaData::HTTP {
+                        url: "http://foo:123/persons".to_string(),
+                        status: http::HTTPStatus::OK
+                    })
+                }
+            ])
+        )
+    }
+
+    #[test]
     fn explore_response_inequality_no_example() {
         let target = sut::Target::HTTP {
             config: http::HTTPConfiguration::new("foo".to_string(), 123, http::Protocol::HTTP),
