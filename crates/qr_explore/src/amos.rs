@@ -13,7 +13,7 @@ use tracing::error;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq)]
 pub enum Error {
     LoadFileFailure,
 }
@@ -345,7 +345,7 @@ fn definition_object_to_schema(
             },
             OpenAPIDataType::File => Property {
                 name: p.name.clone(),
-                schema: Schema::String,
+                schema: Schema::File,
             },
             OpenAPIDataType::Integer64 => Property {
                 name: p.name.clone(),
@@ -741,6 +741,106 @@ mod tests {
     }
 
     #[test]
+    fn default_amos_is_new() {
+        assert_eq!(AMOS::default(), AMOS::new())
+    }
+
+    #[test]
+    fn serialize_deserialize() {
+        let mut amos = AMOS::new();
+
+        let operation = Operation {
+            info: OperationInfo {
+                name: "getAllProducts".to_string(),
+                key: "operation/getAllProducts".to_string(),
+            },
+            parameters: vec![Parameter {
+                name: "productName".to_string(),
+                schema: Schema::StringNonEmpty,
+                ownership: ParameterOwnership::Owned,
+                required: true,
+                meta_data: Some(ParameterMetaData::HTTP {
+                    target: HTTPParameterTarget::Path,
+                }),
+            }],
+            responses: vec![Response {
+                name: "successful operation".to_string(),
+                schema: ArrayOfString,
+            }],
+            meta_data: Some(HTTP {
+                url: "/products".to_string(),
+                method: GET,
+            }),
+        };
+
+        amos.push_operation(operation);
+
+        amos.definitions = vec![Definition {
+            name: "Product".to_string(),
+            key: "definition/Product".to_string(),
+            schema: Object {
+                properties: vec![
+                    Property {
+                        name: "id".to_string(),
+                        schema: Int,
+                    },
+                    Property {
+                        name: "name".to_string(),
+                        schema: String,
+                    },
+                ],
+            },
+        }];
+
+        let path = std::path::Path::new("./test_amos.amos");
+        amos.save(path);
+        let loaded_or_default_amos = AMOS::load_or_default(path);
+        let loaded_amos = AMOS::load(path).unwrap();
+        assert_eq!(amos, loaded_or_default_amos);
+        assert_eq!(amos, loaded_amos)
+    }
+
+    #[test]
+    fn load_returns_new_amos_if_unable_to_load() {
+        let path = std::path::Path::new("./12345");
+        let default_amos = AMOS::load_or_default(path);
+
+        assert_eq!(AMOS::new(), default_amos)
+    }
+
+    #[test]
+    fn load_returns_new_amos_if_unable_to_read_file() {
+        let path = std::path::Path::new("./test/resources/not_json.txt");
+        let default_amos = AMOS::load_or_default(path);
+
+        assert_eq!(AMOS::new(), default_amos)
+    }
+
+    #[test]
+    fn load_errors_if_unable_to_load_file() {
+        let path = std::path::Path::new("./12345");
+        let amos = AMOS::load(path);
+
+        assert_eq!(Error::LoadFileFailure, amos.unwrap_err())
+    }
+
+    #[test]
+    fn load_errors_if_unable_to_deserialize_file() {
+        let path = std::path::Path::new("./test/resources/not_json.txt");
+        let amos = AMOS::load(path);
+
+        assert_eq!(Error::LoadFileFailure, amos.unwrap_err())
+    }
+
+    #[test]
+    fn schemas_can_display() {
+        let schema = Schema::String;
+        let schema_string = format!("{schema}");
+
+        assert_eq!("String".to_string(), schema_string)
+    }
+
+    #[test]
     fn get_operation_to_amos() {
         let parse_result = oas_file_1();
         let op = &parse_result.operations[0];
@@ -918,12 +1018,48 @@ mod tests {
                     ),
                 },
                 OpenAPIProperty {
+                    name: "array_with_ref".to_string(),
+                    kind: OpenAPIDataType::ArrayOfRefItems("foo".to_string()),
+                },
+                OpenAPIProperty {
+                    name: "array_of_strings".to_string(),
+                    kind: OpenAPIDataType::ArrayOfStrings,
+                },
+                OpenAPIProperty {
+                    name: "file".to_string(),
+                    kind: OpenAPIDataType::File,
+                },
+                OpenAPIProperty {
                     name: "id".to_string(),
                     kind: OpenAPIDataType::Integer64,
                 },
                 OpenAPIProperty {
                     name: "name".to_string(),
                     kind: OpenAPIDataType::String,
+                },
+                OpenAPIProperty {
+                    name: "bool".to_string(),
+                    kind: OpenAPIDataType::Boolean,
+                },
+                OpenAPIProperty {
+                    name: "float".to_string(),
+                    kind: OpenAPIDataType::Float,
+                },
+                OpenAPIProperty {
+                    name: "number".to_string(),
+                    kind: OpenAPIDataType::Number,
+                },
+                OpenAPIProperty {
+                    name: "IPV4".to_string(),
+                    kind: OpenAPIDataType::IPV4,
+                },
+                OpenAPIProperty {
+                    name: "schema".to_string(),
+                    kind: OpenAPIDataType::Schema(open_api::Schema::ArrayOfString),
+                },
+                OpenAPIProperty {
+                    name: "unsupported".to_string(),
+                    kind: OpenAPIDataType::Unsupported,
                 },
             ]),
         };
@@ -948,12 +1084,48 @@ mod tests {
                             schema: ArrayOfUniqueRefItems("#/definitions/Feature".to_string())
                         },
                         Property {
+                            name: "array_with_ref".to_string(),
+                            schema: ArrayOfRefItems("foo".to_string())
+                        },
+                        Property {
+                            name: "array_of_strings".to_string(),
+                            schema: ArrayOfString
+                        },
+                        Property {
+                            name: "file".to_string(),
+                            schema: File
+                        },
+                        Property {
                             name: "id".to_string(),
                             schema: Int
                         },
                         Property {
                             name: "name".to_string(),
                             schema: String
+                        },
+                        Property {
+                            name: "bool".to_string(),
+                            schema: Bool
+                        },
+                        Property {
+                            name: "float".to_string(),
+                            schema: Float
+                        },
+                        Property {
+                            name: "number".to_string(),
+                            schema: Number
+                        },
+                        Property {
+                            name: "IPV4".to_string(),
+                            schema: IPV4
+                        },
+                        Property {
+                            name: "schema".to_string(),
+                            schema: ArrayOfString
+                        },
+                        Property {
+                            name: "unsupported".to_string(),
+                            schema: Unsupported
                         }
                     ]
                 }
