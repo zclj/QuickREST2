@@ -2,7 +2,19 @@
 
 QuickREST can be used to explore different behaviours of a REST API.
 
-This is a new version of the original [QuickREST](https://github.com/zclj/QuickREST). It contains a CLI which corresponds to the original version but in addition also an experimental user interface.
+This is a new version of the original [QuickREST](https://github.com/zclj/QuickREST). It contains a CLI which corresponds to the original version but in addition also an experimental user interface. This is a proof-of-concept project, do not expect a production grade experience!
+
+There's a demo available [here](./demos/QuickREST_Demo.mov). The demo show an exploration of a REST API. The API service is running in a background VM, we then import an OpenAPI file describing the available operations. Then we select a behaviour to explore. QuickREST will use this information to try and find sequences that conforms to the selected behaviour. In the demo, such an example is found. In addition, we show the automatically generated invocations and sequences executed where we can see an example of shrinking in the sequence.
+
+## Research
+
+The following papers give more details into the design and usage of the ideas in QuickREST:
+
+- [Exploring API behaviours through generated examples](https://link.springer.com/article/10.1007/s11219-024-09668-2)
+
+- [Exploring behaviours of RESTful APIs in an industrial setting](https://link.springer.com/article/10.1007/s11219-024-09686-0)
+
+- [QuickREST: Property-based Test Generation of OpenAPI-Described RESTful APIs](https://arxiv.org/pdf/1912.09686)
 
 ## Build
 
